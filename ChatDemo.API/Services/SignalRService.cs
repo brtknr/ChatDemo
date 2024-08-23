@@ -21,6 +21,5 @@ namespace ChatDemo.API.Services
             await _hubContext.Clients.Client(connectionId).RecieveMessage(message);
         }
 
-
     }
 }
