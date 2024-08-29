@@ -38,14 +38,36 @@ namespace ChatDemo.API.Hubs
             await Clients.Client(targetConnId).RecieveMessage(message);
         }
 
-        public async Task GetMessagesByGroupId(int groupId,string username)
+        public async Task SendMessageToGroup(string message, string groupId)
+        {
+            var user = _db.Users.Where(x => x.ConnectionId.Equals(Context.ConnectionId)).FirstOrDefault();
+
+            await _db.Messages.AddAsync(new()
+            {
+                Date = DateTime.Now,
+                GroupId = Convert.ToInt32(groupId),
+                SenderId = user.Id,
+                SenderUsername = user.UserName,
+                Text = message,
+            });
+
+            await _db.SaveChangesAsync();
+
+            var messageList = _db.Messages.Where(x=>x.GroupId == Convert.ToInt32(groupId)).ToList();
+            
+            await Clients.Group(groupId).RecieveMessagesByGroupId(messageList);
+        }
+
+        public async Task GetMessagesByGroupId(string oldGroupId,int groupId,string username)
         {
             // son girdigi gruptan kullanciyi cikarip yeni gruba ekle. son girdigi grubu db ye kaydet ya da client tan 2 var tanimlayip yeni eski olarak gonder 
-            //await Groups.AddToGroupAsync(groupId.ToString(), Context.ConnectionId);
+            await Groups.RemoveFromGroupAsync(oldGroupId, Context.ConnectionId);
+
+            await Groups.AddToGroupAsync(groupId.ToString(), Context.ConnectionId);
 
             var messageList = await _db.Messages.Where(x => x.GroupId == groupId).ToListAsync();
 
-            await Clients.Caller.RecieveMessagesByGroupId(messageList);
+            await Clients.Group(groupId.ToString()).RecieveMessagesByGroupId(messageList);
         }
 
         public async Task SendMessage(string message,int groupId)
@@ -58,8 +80,6 @@ namespace ChatDemo.API.Hubs
             //    SenderId = ,
             //    SenderUsername = ,
             //}
-
-
         }
 
         public override async Task OnConnectedAsync()
