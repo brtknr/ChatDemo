@@ -50,14 +50,14 @@ namespace ChatDemo.API.Hubs
 
         public async Task SendMessage(string message,int groupId)
         {
-            Message msg = new()
-            {
-                Date = DateTime.Now,
-                GroupId = groupId,
-                Text = message,
-                SenderId = ,
-                SenderUsername = ,
-            }
+            //Message msg = new()
+            //{
+            //    Date = DateTime.Now,
+            //    GroupId = groupId,
+            //    Text = message,
+            //    SenderId = ,
+            //    SenderUsername = ,
+            //}
 
 
         }
