@@ -10,7 +10,13 @@ namespace ChatDemo.API.Models
         }
         [Key]
         public int Id { get; set; }
-        public string? Name { get; set; }
+        public string? Title { get; set; }
+        public string AdminId { get; set; }
+        public string AvatarUrl { get; set; }
+        public string AdminUsername { get; set; }
+        public DateTime CreatedDate { get; set; }
+
         public virtual ICollection<AppUser> GroupUsers { get; set; }
+        public virtual ICollection<Message> Messages { get; set; }
     }
 }

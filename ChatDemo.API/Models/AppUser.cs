@@ -8,6 +8,10 @@ namespace ChatDemo.API.Models
         {
             Groups = new List<Group>();
         }
+
+        public string Token { get; set; }
+        public string ConnectionId { get; set; }
+
         public virtual ICollection<Group> Groups { get; set; }
     }
 }

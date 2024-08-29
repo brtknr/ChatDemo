@@ -1,4 +1,5 @@
-﻿using ChatDemo.API.Models;
+﻿using ChatDemo.API.DbContext;
+using ChatDemo.API.Models;
 using ChatDemo.API.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -18,12 +19,14 @@ namespace ChatDemo.API.Controllers
         readonly UserManager<AppUser> _userManager;
         readonly SignInManager<AppUser> _signInManager;
         private readonly JWT _jwt;
+        AppDbContext _db;
 
-        public UserController(UserManager<AppUser> userManager,SignInManager<AppUser> signInManager, IOptions<JWT> jwt)
+        public UserController(UserManager<AppUser> userManager,SignInManager<AppUser> signInManager, IOptions<JWT> jwt,AppDbContext db) 
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _jwt = jwt.Value;
+            _db = db;
         }
 
         [HttpPost]
@@ -64,6 +67,14 @@ namespace ChatDemo.API.Controllers
                     {
                         // generate token and return
                         AuthenticationModel authModel = await GetTokenAsync(model);
+                        authModel.UserName = user.UserName;
+
+
+                        var loginUser = _db.Users.Find(user.Id);
+                        loginUser.Token = authModel.Token;
+
+                        await _db.SaveChangesAsync();
+
                         return Ok(authModel);
                     }
                 }
@@ -74,6 +85,21 @@ namespace ChatDemo.API.Controllers
                 }
             }
             return BadRequest(ModelState);
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                await _signInManager.SignOutAsync();
+            }
+            catch(Exception e)
+            {
+                return BadRequest(e);
+            }
+            return Ok();
         }
 
         [Authorize]
