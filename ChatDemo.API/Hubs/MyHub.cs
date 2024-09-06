@@ -6,12 +6,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using System.Diagnostics;
 
 namespace ChatDemo.API.Hubs
 {
     public class MyHub : Hub<IMessageClient>
     {
         static List<string> clients = new List<string>();
+        static List<string> groups = new();
+
         AppDbContext _db;
         UserManager<AppUser> _userManager;
 
@@ -60,26 +63,16 @@ namespace ChatDemo.API.Hubs
 
         public async Task GetMessagesByGroupId(string oldGroupId,int groupId,string username)
         {
-            // son girdigi gruptan kullanciyi cikarip yeni gruba ekle. son girdigi grubu db ye kaydet ya da client tan 2 var tanimlayip yeni eski olarak gonder 
-            await Groups.RemoveFromGroupAsync(oldGroupId, Context.ConnectionId);
+            // son girdigi gruptan kullanciyi cikarip yeni gruba ekle.
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId,oldGroupId);
 
-            await Groups.AddToGroupAsync(groupId.ToString(), Context.ConnectionId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
 
             var messageList = await _db.Messages.Where(x => x.GroupId == groupId).ToListAsync();
 
-            await Clients.Group(groupId.ToString()).RecieveMessagesByGroupId(messageList);
-        }
+            var groupName = groupId.ToString();
 
-        public async Task SendMessage(string message,int groupId)
-        {
-            //Message msg = new()
-            //{
-            //    Date = DateTime.Now,
-            //    GroupId = groupId,
-            //    Text = message,
-            //    SenderId = ,
-            //    SenderUsername = ,
-            //}
+            await Clients.Group(groupName).RecieveMessagesByGroupId(messageList);
         }
 
         public override async Task OnConnectedAsync()
