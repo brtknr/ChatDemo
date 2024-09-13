@@ -1,4 +1,5 @@
-﻿using ChatDemo.API.DbContext;
+﻿using Azure.Core;
+using ChatDemo.API.DbContext;
 using ChatDemo.API.Models;
 using ChatDemo.API.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -57,11 +58,11 @@ namespace ChatDemo.API.Controllers
                 AppUser? user = await _userManager.FindByEmailAsync(model.Email);
                 if (user != null)
                 {
-                    //İlgili kullanıcıya dair önceden oluşturulmuş bir Cookie varsa siliyoruz.
+                   
                     await _signInManager.SignOutAsync();
                     Microsoft.AspNetCore.Identity.SignInResult result = await _signInManager.PasswordSignInAsync(user, model.Password,true,model.Lock);
 
-                    var isSignedIn = User;
+                    //var isSignedIn = User;
 
                     if (result.Succeeded) 
                     {
@@ -151,7 +152,10 @@ namespace ChatDemo.API.Controllers
                 issuer: _jwt.Issuer,
                 audience: _jwt.Audience,
                 expires: DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes),
-                signingCredentials: signingCredentials);
+                signingCredentials: signingCredentials,
+                claims: new List<Claim> {
+                    new Claim("username",user.UserName)
+                });
 
             return jwtSecurityToken;
         }

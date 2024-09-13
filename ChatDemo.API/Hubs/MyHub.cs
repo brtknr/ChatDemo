@@ -12,7 +12,7 @@ namespace ChatDemo.API.Hubs
 {
     public class MyHub : Hub<IMessageClient>
     {
-        static List<string> clients = new List<string>();
+        static Dictionary<string,string> clients = new(); //username , connid
         static List<string> groups = new();
 
         AppDbContext _db;
@@ -29,16 +29,15 @@ namespace ChatDemo.API.Hubs
 
             var user = await _db.Users.Where(x => x.UserName == username).FirstOrDefaultAsync();
 
-            if (user.ConnectionId != "") clients.RemoveAll(x => x.Equals(user.ConnectionId));
+            if (!string.IsNullOrEmpty(user.ConnectionId)) clients.Remove(username); /*clients.RemoveAll(x => x.Equals(user.ConnectionId));*/
 
+            clients.Add(username,connId);
             user.ConnectionId = connId;
-            await _db.SaveChangesAsync();
-        }
 
-        public async Task ClientToClientSendMessage(string message,string targetConnId)
-        {
-            //await Clients.Client(targetConnId).SendAsync("recieveMessage",message);
-            await Clients.Client(targetConnId).RecieveMessage(message);
+            await _db.SaveChangesAsync();
+
+            await Clients.All.RecieveClients(clients.Keys.ToList());
+            await Clients.Others.UserJoined(username);
         }
 
         public async Task SendMessageToGroup(string message, string groupId)
@@ -56,8 +55,11 @@ namespace ChatDemo.API.Hubs
 
             await _db.SaveChangesAsync();
 
-            var messageList = _db.Messages.Where(x=>x.GroupId == Convert.ToInt32(groupId)).ToList();
-            
+            var messageList = await _db.Messages.Where(x=>x.GroupId == Convert.ToInt32(groupId)).ToListAsync();
+
+            //var groupList = GetAllGroups();
+
+            //await Clients.All.RecieveGroups(groupList);
             await Clients.Group(groupId).RecieveMessagesByGroupId(messageList);
         }
 
@@ -68,7 +70,7 @@ namespace ChatDemo.API.Hubs
 
             await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
 
-            var messageList = await _db.Messages.Where(x => x.GroupId == groupId).ToListAsync();
+            var messageList = await _db.Messages.Where(x => x.GroupId == groupId).OrderBy(x=>x.Date).ToListAsync();
 
             var groupName = groupId.ToString();
 
@@ -77,13 +79,47 @@ namespace ChatDemo.API.Hubs
 
         public override async Task OnConnectedAsync()
         {
-            clients.Add(Context.ConnectionId);
+            var groupList = await GetAllGroups();
 
-            var groupList = _db.Groups.ToList();
-            var groupListVM = new List<GroupResponseModel>();
+            if(clients.Count() > 0) await Clients.All.RecieveClients(clients.Keys.ToList()); // usernames
             
+            await Clients.All.RecieveGroups(groupList);
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+
+            var user = _db.Users.Where(x => x.ConnectionId == Context.ConnectionId).FirstOrDefault();
+
+            var clientToRemove = clients.Where(x => x.Value == Context.ConnectionId).FirstOrDefault().Key;
+
+            
+            await Clients.Others.UserLeft(clientToRemove);
+
+            clients.Remove(clientToRemove);
+
+            await Clients.All.RecieveClients(clients.Keys.ToList());
+
+            if (user != null)
+            {
+                user.ConnectionId = "";
+                await _db.SaveChangesAsync();
+            }
+        }
+        
+
+
+
+        private async Task<List<GroupResponseModel>> GetAllGroups()
+        {
+            var groupList = await _db.Groups.ToListAsync();
+            var groupListVM = new List<GroupResponseModel>();
+
             foreach (var group in groupList)
             {
+                IOrderedQueryable<Message> lastMessageQuery = _db.Messages.Where(x => x.GroupId == group.Id).OrderBy(x => x.Date);
+                string? lastMessage = lastMessageQuery.Count() != 0 ? lastMessageQuery.Last().Text : "";
+
                 groupListVM.Add(new()
                 {
                     AdminId = group.AdminId,
@@ -91,20 +127,12 @@ namespace ChatDemo.API.Hubs
                     AvatarUrl = group.AvatarUrl,
                     CreatedDate = group.CreatedDate,
                     GroupId = group.Id,
-                    LastMessage = group.Messages != null ? group.Messages.LastOrDefault().Text : "testsonmesaj",
+                    LastMessage = lastMessage,
                     Title = group.Title
                 });
             }
 
-            await Clients.All.RecieveGroups(groupListVM);
+            return groupListVM;
         }
-
-        public override async Task OnDisconnectedAsync(Exception? exception)
-        {
-            clients.Remove(Context.ConnectionId);
-            await Clients.All.RecieveClients(clients);
-            await Clients.All.UserLeft(Context.ConnectionId);
-        }
-        
     }
 }
