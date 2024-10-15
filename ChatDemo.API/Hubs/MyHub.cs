@@ -77,6 +77,28 @@ namespace ChatDemo.API.Hubs
             await Clients.Group(groupName).RecieveMessagesByGroupId(messageList);
         }
 
+        public async Task CreateChatGroup(string groupId,string connId)
+        {
+            var user = _db.Users.Where(x => x.ConnectionId == connId).FirstOrDefault();
+            
+
+            if(user != null)
+            {
+                await Groups.AddToGroupAsync(connId, groupId);
+                await _db.Groups.AddAsync(new()
+                    {
+                        AdminId = connId,
+                        AvatarUrl = "./assets/GroupAvatars/football.jpg",
+                        CreatedDate = DateTime.Now,
+                        AdminUsername = user.UserName,
+                        Title = groupId
+                    });
+
+                var groupList = await GetAllGroups();
+                await Clients.All.RecieveGroups(groupList);
+            }
+        }
+
         public override async Task OnConnectedAsync()
         {
             var groupList = await GetAllGroups();
@@ -134,5 +156,7 @@ namespace ChatDemo.API.Hubs
 
             return groupListVM;
         }
+
+
     }
 }
